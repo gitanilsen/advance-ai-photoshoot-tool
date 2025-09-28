@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stylus AI - Advanced Photoshoot Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .preview-img { width: 100%; height: 12rem; object-fit: cover; border-radius: 0.5rem; background-color: #e5e7eb; border: 2px dashed #d1d5db; }
+        .preview-img.clickable { cursor: pointer; }
+        .result-img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 0.5rem; background-color: #e5e7eb; display: flex; align-items: center; justify-content: center; }
+        .result-img.square { aspect-ratio: 1 / 1; }
+        .result-img.story { aspect-ratio: 9 / 16; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        .btn-loader { border: 2px solid #f3f3f3; border-top: 2px solid #ffffff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .gallery-modal, .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(8px); }
+        .gallery-content { max-width: 90vw; max-height: 90vh; }
+        .gallery-btn { position: absolute; top: 50%; transform: translateY(-50%); background-color: rgba(0, 0, 0, 0.5); color: white; border: none; font-size: 2rem; cursor: pointer; padding: 0.5rem 1rem; border-radius: 0.5rem; user-select: none; transition: background-color 0.2s; }
+        .gallery-btn:hover { background-color: rgba(0, 0, 0, 0.8); }
+        .gallery-prev { left: 1rem; } .gallery-next { right: 1rem; }
+        .gallery-close { position: absolute; top: 1rem; right: 2rem; color: white; font-size: 3rem; cursor: pointer; line-height: 1; }
+        .pose-checkbox:checked + label { border-color: #3b82f6; background-color: #eff6ff; }
+        .pose-checkbox:disabled + label { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div id="main-content">
+        <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+            <header class="text-center mb-8 md:mb-12">
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Stylus AI</h1>
+                <p class="text-md text-gray-600 mt-2">Advanced AI Photoshoot & Catalog Generator</p>
+            </header>
+
+            <!-- Product Assets -->
+            <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg mb-8">
+                <h2 class="text-2xl font-semibold mb-6 border-b pb-4">1. Upload Product Assets</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="flex flex-col items-center">
+                        <img id="product-front-preview" data-preview-id="productFront" class="preview-img mb-3" src="https://placehold.co/300x400/e2e8f0/cbd5e0?text=Product+Front">
+                        <label for="product-front-upload" class="w-full text-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg cursor-pointer hover:bg-blue-700 transition duration-300">Upload Product (Front)</label>
+                        <input id="product-front-upload" type="file" class="hidden" accept="image/*">
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <img id="product-back-preview" data-preview-id="productBack" class="preview-img mb-3" src="https://placehold.co/300x400/e2e8f0/cbd5e0?text=Product+Back">
+                         <label for="product-back-upload" class="w-full text-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg cursor-pointer hover:bg-blue-700 transition duration-300">Upload Product (Back)</label>
+                        <input id="product-back-upload" type="file" class="hidden" accept="image/*">
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <img id="bottom-wear-preview" data-preview-id="bottomWear" class="preview-img mb-3" src="https://placehold.co/300x400/e2e8f0/cbd5e0?text=Bottom+Wear+(Optional)">
+                         <label for="bottom-wear-upload" class="w-full text-center bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-600 transition duration-300">Upload Bottom Wear</label>
+                        <input id="bottom-wear-upload" type="file" class="hidden" accept="image/*">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model & Scene -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- Model Generation -->
+                <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-6 border-b pb-4">2. Choose Your Model</h2>
+                    <div class="flex flex-col items-center">
+                         <img id="model-preview" data-preview-id="model" class="preview-img mb-3" src="https://placehold.co/300x400/e2e8f0/cbd5e0?text=Upload+or+Generate">
+                         <label for="model-upload" class="w-full text-center bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-600 transition duration-300">Upload Model</label>
+                         <input id="model-upload" type="file" class="hidden" accept="image/*">
+                    </div>
+                    <p class="text-center my-4 font-semibold text-gray-500">OR</p>
+                    <div class="border rounded-lg p-4">
+                         <h3 class="text-lg font-semibold mb-4 text-center">Generate an AI Model</h3>
+                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="model-type-select" class="block text-sm font-medium text-gray-700 mb-1">Model Type</label>
+                                <select id="model-type-select" class="w-full p-2 border border-gray-300 rounded-lg"><option>Female</option><option>Male</option><option>Kid (Girl)</option><option>Kid (Boy)</option></select>
+                            </div>
+                            <div>
+                                <label for="ethnicity-select" class="block text-sm font-medium text-gray-700 mb-1">Ethnicity</label>
+                                <select id="ethnicity-select" class="w-full p-2 border border-gray-300 rounded-lg"><option>Indian</option><option>East Asian</option><option>Middle Eastern</option><option>European</option><option>African</option><option>Latin American</option></select>
+                            </div>
+                            <div id="age-adult-container">
+                                <label for="age-select" class="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                                <select id="age-select" class="w-full p-2 border border-gray-300 rounded-lg"><option>20s</option><option>30s</option><option>40s</option></select>
+                            </div>
+                             <div id="age-kid-container" class="hidden">
+                                <label for="age-kid-select" class="block text-sm font-medium text-gray-700 mb-1">Age Group</label>
+                                <select id="age-kid-select" class="w-full p-2 border border-gray-300 rounded-lg"><option>1-2 years</option><option>2-5 years</option><option>5-10 years</option><option>10-15 years</option></select>
+                            </div>
+                            <div>
+                                <label for="hair-select" class="block text-sm font-medium text-gray-700 mb-1">Hair Style</label>
+                                <select id="hair-select" class="w-full p-2 border border-gray-300 rounded-lg"></select>
+                            </div>
+                         </div>
+                         <button id="generate-model-btn" class="mt-4 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition flex justify-center items-center gap-2" >
+                            <span id="generate-model-text">Generate Model</span>
+                            <div id="generate-model-loader" class="btn-loader hidden"></div>
+                         </button>
+                    </div>
+                </div>
+                <!-- Background Generation -->
+                <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-6 border-b pb-4">3. Set the Scene</h2>
+                     <div class="flex flex-col items-center">
+                         <img id="bg-preview" data-preview-id="background" class="preview-img mb-3" src="https://placehold.co/300x400/e2e8f0/cbd5e0?text=Upload+or+Generate">
+                         <label for="bg-upload" class="w-full text-center bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-600 transition duration-300">Upload Background</label>
+                         <input id="bg-upload" type="file" class="hidden" accept="image/*">
+                    </div>
+                    <p class="text-center my-4 font-semibold text-gray-500">OR</p>
+                    <div class="border rounded-lg p-4 space-y-4">
+                        <div>
+                            <h3 class="text-lg font-semibold mb-2 text-center">Describe the Scene</h3>
+                            <textarea id="scene-description" class="w-full p-2 border border-gray-300 rounded-lg" rows="2" placeholder="e.g., A minimalist Jaipur palace..."></textarea>
+                            <button id="generate-bg-btn" class="mt-2 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition flex justify-center items-center gap-2">
+                                <span id="generate-bg-text">Generate Background from Description</span>
+                                <div id="generate-bg-loader" class="btn-loader hidden"></div>
+                            </button>
+                        </div>
+                        <p class="text-center my-2 font-semibold text-gray-500">OR</p>
+                         <div>
+                            <h3 class="text-lg font-semibold mb-2 text-center">Choose from Presets</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <select id="location-type-select" class="w-full p-2 border border-gray-300 rounded-lg"><option selected disabled>Location Type...</option><option>Indoor</option><option>Outdoor</option></select>
+                                <select id="location-preset-select" class="w-full p-2 border border-gray-300 rounded-lg" disabled><option>Select type...</option></select>
+                            </div>
+                            <button id="generate-preset-bg-btn" class="mt-2 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition flex justify-center items-center gap-2">
+                                <span id="generate-preset-bg-text">Generate from Preset</span>
+                                <div id="generate-preset-bg-loader" class="btn-loader hidden"></div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pose & Styling -->
+            <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg mb-8">
+                 <h2 class="text-2xl font-semibold mb-6 border-b pb-4">4. Styling & Poses</h2>
+                 <div class="mb-6">
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="accessories-checkbox" class="h-5 w-5 rounded text-blue-600 focus:ring-blue-500">
+                        <span class="text-gray-700 font-medium">Add Smart Accessories (Jewelry, Handbags, etc.)</span>
+                    </label>
+                 </div>
+                 <div>
+                    <h3 class="text-lg font-semibold mb-4">Select 6 Poses</h3>
+                    <div id="pose-selection-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+                        <!-- Pose Icons will be injected here by JS -->
+                    </div>
+                 </div>
+            </div>
+
+
+            <!-- Generation Controls -->
+            <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg flex flex-col items-center">
+                <h2 class="text-2xl font-semibold mb-6">5. Generate Your Photoshoot</h2>
+                <div class="w-full max-w-xs mb-6">
+                    <label for="aspect-ratio-select" class="block text-sm font-medium text-gray-700 mb-2">Aspect Ratio</label>
+                    <select id="aspect-ratio-select" class="w-full p-2 border border-gray-300 rounded-lg">
+                        <option value="portrait">Portrait (4:5)</option>
+                        <option value="square">Square (1:1)</option>
+                        <option value="story">Story (9:16)</option>
+                    </select>
+                </div>
+                <button id="generate-btn" class="bg-green-600 text-white font-bold py-4 px-12 rounded-lg text-xl hover:bg-green-700 transition duration-300 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    Generate Catalog
+                </button>
+            </div>
+
+            <!-- Results -->
+            <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg mt-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-semibold">Your Generated Catalog</h2>
+                    <button id="download-btn" class="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                        Download All (.zip)
+                    </button>
+                </div>
+                <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modals & Messages -->
+    <div id="loading-overlay" class="overlay hidden">
+        <div class="flex flex-col items-center text-white bg-gray-900/50 p-8 rounded-lg">
+            <div class="loader"></div>
+            <p id="loading-text" class="mt-4 text-lg font-semibold text-center"></p>
+        </div>
+    </div>
+    <div id="gallery-modal" class="gallery-modal hidden">
+        <span id="gallery-close" class="gallery-close">&times;</span>
+        <button id="gallery-prev" class="gallery-btn gallery-prev">&#10094;</button>
+        <img id="gallery-image" class="gallery-content" src="">
+        <button id="gallery-next" class="gallery-btn gallery-next">&#10095;</button>
+    </div>
+     <div id="preview-modal" class="gallery-modal hidden">
+        <span id="preview-close" class="gallery-close">&times;</span>
+        <div class="flex flex-col items-center">
+            <img id="preview-image" class="gallery-content" src="">
+            <button id="preview-remove-btn" class="mt-4 bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition">Remove Image</button>
+        </div>
+    </div>
+    <div id="message-box" class="hidden fixed top-5 right-5 bg-red-500 text-white py-2 px-4 rounded-lg shadow-xl transition-opacity duration-300">
+        <p id="message-text"></p>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const mainContent = document.getElementById('main-content');
+        const productFrontUpload = document.getElementById('product-front-upload');
+        const productBackUpload = document.getElementById('product-back-upload');
+        const bottomWearUpload = document.getElementById('bottom-wear-upload');
+        const modelUpload = document.getElementById('model-upload');
+        const bgUpload = document.getElementById('bg-upload');
+
+        const productFrontPreview = document.getElementById('product-front-preview');
+        const productBackPreview = document.getElementById('product-back-preview');
+        const bottomWearPreview = document.getElementById('bottom-wear-preview');
+        const modelPreview = document.getElementById('model-preview');
+        const bgPreview = document.getElementById('bg-preview');
+
+        const generateModelBtn = document.getElementById('generate-model-btn');
+        const generateModelText = document.getElementById('generate-model-text');
+        const generateModelLoader = document.getElementById('generate-model-loader');
+        const modelTypeSelect = document.getElementById('model-type-select');
+        const ethnicitySelect = document.getElementById('ethnicity-select');
+        const ageSelect = document.getElementById('age-select');
+        const ageKidSelect = document.getElementById('age-kid-select');
+        const ageAdultContainer = document.getElementById('age-adult-container');
+        const ageKidContainer = document.getElementById('age-kid-container');
+        const hairSelect = document.getElementById('hair-select');
+
+        const generateBgBtn = document.getElementById('generate-bg-btn');
+        const generateBgText = document.getElementById('generate-bg-text');
+        const generateBgLoader = document.getElementById('generate-bg-loader');
+        const generatePresetBgBtn = document.getElementById('generate-preset-bg-btn');
+        const generatePresetBgText = document.getElementById('generate-preset-bg-text');
+        const generatePresetBgLoader = document.getElementById('generate-preset-bg-loader');
+        const sceneDescription = document.getElementById('scene-description');
+        const locationTypeSelect = document.getElementById('location-type-select');
+        const locationPresetSelect = document.getElementById('location-preset-select');
+        
+        const poseSelectionGrid = document.getElementById('pose-selection-grid');
+        const accessoriesCheckbox = document.getElementById('accessories-checkbox');
+        const aspectRatioSelect = document.getElementById('aspect-ratio-select');
+        const generateBtn = document.getElementById('generate-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const resultsGrid = document.getElementById('results-grid');
+
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        
+        const galleryModal = document.getElementById('gallery-modal');
+        const galleryImage = document.getElementById('gallery-image');
+        const galleryClose = document.getElementById('gallery-close');
+        const galleryPrev = document.getElementById('gallery-prev');
+        const galleryNext = document.getElementById('gallery-next');
+
+        const previewModal = document.getElementById('preview-modal');
+        const previewImage = document.getElementById('preview-image');
+        const previewClose = document.getElementById('preview-close');
+        const previewRemoveBtn = document.getElementById('preview-remove-btn');
+
+        // --- State & Data ---
+        let uploadedImages = { productFront: null, productBack: null, bottomWear: null, model: null, background: null };
+        let generatedImages = [];
+        let currentGalleryIndex = 0;
+        let currentPreviewId = null;
+
+        const hairStyleOptions = {
+            'Female': ['Long & Straight', 'Wavy', 'Curly', 'Short Bob', 'Updo', 'Braids'],
+            'Male': ['Short Crew Cut', 'Side Part', 'Buzz Cut', 'Man Bun', 'Medium Length'],
+            'Kid (Girl)': ['Pigtails', 'Ponytail', 'Braids', 'Short Bob with Bangs'],
+            'Kid (Boy)': ['Short Crew Cut', 'Side Part', 'Spiky Hair', 'Bowl Cut']
+        };
+        
+        const previewElements = {
+            productFront: { img: productFrontPreview, input: productFrontUpload, placeholder: 'https://placehold.co/300x400/e2e8f0/cbd5e0?text=Product+Front' },
+            productBack: { img: productBackPreview, input: productBackUpload, placeholder: 'https://placehold.co/300x400/e2e8f0/cbd5e0?text=Product+Back' },
+            bottomWear: { img: bottomWearPreview, input: bottomWearUpload, placeholder: 'https://placehold.co/300x400/e2e8f0/cbd5e0?text=Bottom+Wear+(Optional)' },
+            model: { img: modelPreview, input: modelUpload, placeholder: 'https://placehold.co/300x400/e2e8f0/cbd5e0?text=Upload+or+Generate' },
+            background: { img: bgPreview, input: bgUpload, placeholder: 'https://placehold.co/300x400/e2e8f0/cbd5e0?text=Upload+or+Generate' }
+        };
+
+        const poses = {
+            'front_standard': { name: 'Front Standard', prompt: "a standard, full-body, front-facing fashion pose.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2M9.5 7a2.5 2.5 0 0 1 2.5-2.5a2.5 2.5 0 0 1 2.5 2.5V11h-5V7m2.5 5.5a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5a1.5 1.5 0 0 1-1.5-1.5v-5a1.5 1.5 0 0 1 1.5-1.5Z"/></svg>`},
+            'front_dynamic': { name: 'Front Dynamic', prompt: "a dynamic, full-body, front-facing pose, such as one hand on a hip or a slight turn of the shoulders.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4a2 2 0 1 0 0-4a2 2 0 0 0 0 4m0 2a2 2 0 1 0 0-4a2 2 0 0 0 0 4M9 6h6v12H9z" transform="rotate(-15 12 12)"/></svg>` },
+            'back_view': { name: 'Back View', prompt: "a back view pose, with the model looking gracefully over one shoulder.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2m2.5 5a2.5 2.5 0 0 0-2.5-2.5a2.5 2.5 0 0 0-2.5 2.5V11h5V7m-2.5 5.5a1.5 1.5 0 0 0-1.5 1.5v5a1.5 1.5 0 0 0 1.5 1.5a1.5 1.5 0 0 0 1.5-1.5v-5a1.5 1.5 0 0 0-1.5-1.5Z"/></svg>` },
+            'side_profile': { name: 'Side Profile', prompt: "a graceful, full-body, three-quarter or side-profile pose that showcases the garment's silhouette.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M14.5 4a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5m0 2a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5m-2 2h4v12h-4z"/></svg>` },
+            'walking': { name: 'Walking', prompt: "a walking motion pose, capturing a moment of natural movement.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 5.5a2 2 0 1 0 0-4a2 2 0 0 0 0 4m-2-2a2 2 0 1 0 0-4a2 2 0 0 0 0 4m-3 4l-1.5 5.5l1.5-1.5l3.5 4l2-3.5l-3.5-3zM15 13l-3.5 3l-2-4l-1.5 4.5L9.5 22l4-7l-1.5-2.5z"/></svg>` },
+            'close_up': { name: 'Close Up', prompt: "a beautiful close-up shot from the chest up, focusing on the product's texture and fabric details, with an artistically blurred background.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6a3 3 0 1 0 0-6a3 3 0 0 0 0 6m-5 4h10v2H7zm0 4h10v2H7zm0 4h10v2H7z"/></svg>` },
+            'sitting': { name: 'Sitting', prompt: "a relaxed sitting pose on a stylish chair or steps, showcasing how the garment drapes.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 7.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5m0 2a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5M17 10h-7v2h5v9h-5v-5H8v7h11v-2h-2z"/></svg>` },
+            'hands_in_pockets': { name: 'Hands In Pockets', prompt: "a casual full-body pose with hands in pockets, looking confident and relaxed.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2M9 7h6v5h2v10H7V12h2V7Z"/></svg>` },
+            'leaning': { name: 'Leaning', prompt: "a stylish pose leaning against a wall or railing, looking effortlessly cool.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a2 2 0 1 1 0-4a2 2 0 0 1 0 4zm0 2a2 2 0 1 1 0-4a2 2 0 0 1 0 4z" transform="rotate(15 12 12)"/><path d="M9 6h6v12H9z" transform="rotate(15 12 12)"/><path d="M4 2v20h2V2z"/></svg>` },
+            'arms_crossed': { name: 'Arms Crossed', prompt: "a powerful front-facing pose with arms crossed, looking directly at the camera.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2m-3 5h6v3.5l4-2.5l-4-2.5V7H9v3.5L5 8l4 2.5V10Z M9 12h6v10H9v-10Z"/></svg>` },
+            'looking_away': { name: 'Looking Away', prompt: "a candid-style pose, looking thoughtfully away from the camera, creating a sense of story.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 4a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5m0 2a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5m-2 2h4v12h-4z"/></svg>` },
+            'detail_shot': { name: 'Detail Shot', prompt: "a close-up shot focusing on a specific detail of the garment, like a cuff, collar, or button, with the model's hands in frame.", svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 8a2 2 0 1 0 0-4a2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0-4a2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0-4a2 2 0 0 0 0 4zm4-4a2 2 0 1 0 0-4a2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0-4a2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0-4a2 2 0 0 0 0 4z"/></svg>`}
+        };
+
+        const backgroundPresets = {
+            'Indoor': ['Modern minimalist apartment', 'Luxury hotel lobby with marble floors', 'Cozy library with wooden bookshelves', 'Bright art gallery with white walls', 'Industrial loft with exposed brick'],
+            'Outdoor': ['Sun-drenched tropical beach at sunset', 'Bustling city street with blurred traffic', 'Enchanted forest with dappled sunlight', 'Rooftop terrace overlooking a city skyline', 'Quaint European cobblestone alley']
+        };
+
+        // --- Initial Setup & Event Listeners ---
+        function updateHairStyles() {
+            const modelType = modelTypeSelect.value;
+            const styles = hairStyleOptions[modelType] || [];
+            hairSelect.innerHTML = '';
+            styles.forEach(style => {
+                const option = document.createElement('option');
+                option.value = style;
+                option.textContent = style;
+                hairSelect.appendChild(option);
+            });
+        }
+        
+        window.onload = () => {
+            Object.keys(poses).forEach(key => {
+                const pose = poses[key];
+                poseSelectionGrid.innerHTML += `
+                    <div>
+                        <input type="checkbox" id="pose-${key}" value="${key}" class="hidden pose-checkbox">
+                        <label for="pose-${key}" class="flex flex-col items-center p-2 border-2 border-gray-300 rounded-lg cursor-pointer transition-colors">
+                            <span class="w-8 h-8 text-gray-600">${pose.svg}</span>
+                            <span class="text-xs text-center mt-1">${pose.name}</span>
+                        </label>
+                    </div>`;
+            });
+            for (let i = 0; i < 6; i++) {
+                resultsGrid.innerHTML += `<div class="result-img"><span class="text-gray-500">Image #${i + 1}</span></div>`;
+            }
+            poseSelectionGrid.addEventListener('change', () => {
+                const checkedPoses = document.querySelectorAll('.pose-checkbox:checked');
+                const allPoses = document.querySelectorAll('.pose-checkbox');
+                if (checkedPoses.length >= 6) {
+                    allPoses.forEach(cb => { if (!cb.checked) cb.disabled = true; });
+                } else {
+                    allPoses.forEach(cb => cb.disabled = false);
+                }
+            });
+            updateHairStyles(); // Initialize hair styles
+        };
+        
+        productFrontUpload.addEventListener('change', (e) => handleFileSelect(e, productFrontPreview, 'productFront'));
+        productBackUpload.addEventListener('change', (e) => handleFileSelect(e, productBackPreview, 'productBack'));
+        bottomWearUpload.addEventListener('change', (e) => handleFileSelect(e, bottomWearPreview, 'bottomWear'));
+        modelUpload.addEventListener('change', (e) => handleFileSelect(e, modelPreview, 'model'));
+        bgUpload.addEventListener('change', (e) => handleFileSelect(e, bgPreview, 'background'));
+        
+        modelTypeSelect.addEventListener('change', () => {
+            const isKid = modelTypeSelect.value.startsWith('Kid');
+            ageAdultContainer.classList.toggle('hidden', isKid);
+            ageKidContainer.classList.toggle('hidden', !isKid);
+            updateHairStyles();
+        });
+
+        locationTypeSelect.addEventListener('change', () => {
+            const type = locationTypeSelect.value;
+            locationPresetSelect.innerHTML = '<option selected disabled>Choose a scene...</option>';
+            if (backgroundPresets[type]) {
+                locationPresetSelect.disabled = false;
+                backgroundPresets[type].forEach(preset => {
+                    const option = document.createElement('option');
+                    option.value = preset;
+                    option.textContent = preset;
+                    locationPresetSelect.appendChild(option);
+                });
+            } else {
+                locationPresetSelect.disabled = true;
+            }
+        });
+        
+        generateModelBtn.addEventListener('click', async () => {
+            setLoadingState(true, "Crafting your unique AI model...", generateModelBtn, generateModelText, generateModelLoader);
+            const modelType = modelTypeSelect.value.startsWith('Kid') ? modelTypeSelect.value.replace('(', '').replace(')', '') : modelTypeSelect.value;
+            const age = modelTypeSelect.value.startsWith('Kid') ? ageKidSelect.value : ageSelect.value;
+            const prompt = `Photorealistic headshot of a ${age} ${ethnicitySelect.value} ${modelType.toLowerCase()}, with ${hairSelect.value} hair, studio lighting, looking at camera.`;
+            const imageData = await generateImage(prompt, {});
+            if (imageData) {
+                modelPreview.src = imageData;
+                uploadedImages.model = imageData.split(',')[1];
+                showMessage("AI Model generated successfully!", false);
+            } else {
+                showMessage("Failed to generate AI model.");
+            }
+            setLoadingState(false, null, generateModelBtn, generateModelText, generateModelLoader);
+        });
+
+        generateBgBtn.addEventListener('click', async () => {
+            if (!sceneDescription.value) return showMessage("Please describe the scene first.");
+            setLoadingState(true, "Painting your custom scene...", generateBgBtn, generateBgText, generateBgLoader);
+            const prompt = `A photorealistic, high-quality photograph of: ${sceneDescription.value}. The scene should be suitable for a fashion photoshoot.`;
+            const imageData = await generateImage(prompt, {});
+             if (imageData) {
+                bgPreview.src = imageData;
+                uploadedImages.background = imageData.split(',')[1];
+                showMessage("AI Background generated successfully!", false);
+            } else {
+                showMessage("Failed to generate AI background.");
+            }
+            setLoadingState(false, null, generateBgBtn, generateBgText, generateBgLoader);
+        });
+
+        generatePresetBgBtn.addEventListener('click', async () => {
+            if (locationPresetSelect.value.includes('...')) return showMessage("Please select a preset scene first.");
+            setLoadingState(true, "Generating Preset Background...", generatePresetBgBtn, generatePresetBgText, generatePresetBgLoader);
+            const prompt = `A photorealistic, high-quality photograph of: ${locationPresetSelect.value}. The scene should be suitable for a fashion photoshoot.`;
+            const imageData = await generateImage(prompt, {});
+            if (imageData) {
+                bgPreview.src = imageData;
+                uploadedImages.background = imageData.split(',')[1];
+                showMessage("Preset background generated successfully!", false);
+            } else {
+                showMessage("Failed to generate preset background.");
+            }
+            setLoadingState(false, null, generatePresetBgBtn, generatePresetBgText, generatePresetBgLoader);
+        });
+
+        generateBtn.addEventListener('click', generateCatalog);
+        downloadBtn.addEventListener('click', downloadAllImages);
+        
+        // Modal & Gallery Listeners
+        galleryClose.addEventListener('click', () => galleryModal.classList.add('hidden'));
+        galleryPrev.addEventListener('click', () => changeImage(-1));
+        galleryNext.addEventListener('click', () => changeImage(1));
+        resultsGrid.addEventListener('click', (e) => {
+            if (e.target.tagName === 'IMG' && e.target.dataset.index) openGallery(parseInt(e.target.dataset.index));
+        });
+        
+        mainContent.addEventListener('click', (e) => {
+            if(e.target.dataset.previewId) openPreviewModal(e.target.dataset.previewId);
+        });
+        previewClose.addEventListener('click', closePreviewModal);
+        previewRemoveBtn.addEventListener('click', removePreviewImage);
+        
+        document.addEventListener('keydown', (e) => {
+            if (!galleryModal.classList.contains('hidden')) {
+                 if (e.key === 'Escape') closeGallery();
+                 if (e.key === 'ArrowLeft') changeImage(-1);
+                 if (e.key === 'ArrowRight') changeImage(1);
+            }
+            if (!previewModal.classList.contains('hidden')) {
+                 if (e.key === 'Escape') closePreviewModal();
+            }
+        });
+
+        // --- Utility & Modal Functions ---
+        function setLoadingState(isLoading, message, button, textEl, loaderEl) {
+            if (isLoading) {
+                mainContent.style.filter = 'blur(5px)';
+                mainContent.style.pointerEvents = 'none';
+                loadingText.textContent = message;
+                loadingOverlay.classList.remove('hidden');
+                if(button) {
+                    button.disabled = true;
+                    textEl.classList.add('hidden');
+                    loaderEl.classList.remove('hidden');
+                }
+            } else {
+                 mainContent.style.filter = 'none';
+                mainContent.style.pointerEvents = 'auto';
+                loadingOverlay.classList.add('hidden');
+                 if(button) {
+                    button.disabled = false;
+                    textEl.classList.remove('hidden');
+                    loaderEl.classList.add('hidden');
+                }
+            }
+        }
+
+        function showMessage(message, isError = true, duration = 4000) {
+            messageText.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-500', 'bg-blue-500');
+            messageBox.classList.add(isError ? 'bg-red-500' : 'bg-blue-500');
+            setTimeout(() => messageBox.classList.add('hidden'), duration);
+        }
+
+        function handleFileSelect(event, previewElement, imageKey) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const base64String = e.target.result;
+                previewElement.src = base64String;
+                previewElement.classList.add('clickable');
+                uploadedImages[imageKey] = base64String.split(',')[1];
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function openGallery(index) {
+            const validImages = generatedImages.filter(Boolean);
+            if (validImages.length === 0) return;
+            const clickedImageSrc = generatedImages[index];
+            const validIndex = validImages.indexOf(clickedImageSrc);
+            if (validIndex === -1) return;
+            currentGalleryIndex = validIndex;
+            galleryImage.src = validImages[currentGalleryIndex];
+            galleryModal.classList.remove('hidden');
+        }
+
+        function changeImage(direction) {
+            const validImages = generatedImages.filter(Boolean);
+            if (validImages.length === 0) return;
+            currentGalleryIndex = (currentGalleryIndex + direction + validImages.length) % validImages.length;
+            galleryImage.src = validImages[currentGalleryIndex];
+        }
+        
+        function openPreviewModal(previewId) {
+            if (uploadedImages[previewId]) {
+                currentPreviewId = previewId;
+                previewImage.src = `data:image/jpeg;base64,${uploadedImages[previewId]}`;
+                previewModal.classList.remove('hidden');
+            }
+        }
+
+        function closePreviewModal() {
+            previewModal.classList.add('hidden');
+            currentPreviewId = null;
+        }
+
+        function removePreviewImage() {
+            if (currentPreviewId) {
+                const elements = previewElements[currentPreviewId];
+                elements.img.src = elements.placeholder;
+                elements.img.classList.remove('clickable');
+                elements.input.value = '';
+                uploadedImages[currentPreviewId] = null;
+                closePreviewModal();
+            }
+        }
+
+        // --- Core API & Generation Logic ---
+        async function generateImage(prompt, images) {
+            const apiKey = "AIzaSyDi7KQjwGulBY7tg7w0wAZGc7-2xpz7TXQ"; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+            const imageParts = Object.entries(images).filter(([, data]) => data).map(([key, data]) => ({
+                inlineData: { mimeType: 'image/jpeg', data }
+            }));
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }, ...imageParts] }],
+                generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+            };
+
+            for (let i = 0; i < 3; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+                        return base64Data ? `data:image/png;base64,${base64Data}` : null;
+                    }
+                } catch (error) { console.error('Fetch error:', error); }
+                await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1)));
+            }
+            return null;
+        }
+
+        async function generateCatalog() {
+            const selectedPoses = Array.from(document.querySelectorAll('.pose-checkbox:checked')).map(cb => cb.value);
+            if (!uploadedImages.productFront || !uploadedImages.productBack) return showMessage("Please upload at least the front and back product images.");
+            if (!uploadedImages.model) return showMessage("Please upload or generate a model.");
+            if (!uploadedImages.background) return showMessage("Please ensure a background is uploaded or generated.");
+            if (selectedPoses.length !== 6) return showMessage("Please select exactly 6 poses.");
+
+            setLoadingState(true, "Assembling your professional photoshoot...Great things take time!");
+            generateBtn.disabled = true;
+            downloadBtn.disabled = true;
+            generatedImages = [];
+            Array.from(resultsGrid.children).forEach(child => child.innerHTML = '<div class="loader"></div>');
+
+            const aspectRatio = aspectRatioSelect.value;
+            const accessories = accessoriesCheckbox.checked ? " The model should be styled with appropriate and elegant accessories (e.g., jewelry, handbag) that complement the outfit and scene." : "";
+            
+            let masterPrompt = `ACT AS A PHOTOSHOP EXPERT. This is a technical digital composite task. Create a photorealistic master image with a ${aspectRatio} aspect ratio. HIGHEST PRIORITY: The final image must contain a person who is **indistinguishable** from the 'model' image (exact face, hair color, skin tone) and wearing the **pixel-perfect, unaltered product** from the 'product front' and 'bottom wear' images. Place this person in the 'background' image. The final pose should be ${poses[selectedPoses[0]].prompt}.${accessories}`;
+
+            const masterImageData = await generateImage(masterPrompt, {
+                model: uploadedImages.model,
+                background: uploadedImages.background,
+                productFront: uploadedImages.productFront,
+                bottomWear: uploadedImages.bottomWear
+            });
+
+            if (!masterImageData) {
+                showMessage("Failed to create the Master Image. Please try again.");
+                setLoadingState(false);
+                generateBtn.disabled = false;
+                return;
+            }
+            const masterImageBase64 = masterImageData.split(',')[1];
+            
+            const processImage = (imageData, index) => {
+                const resultDiv = resultsGrid.children[index];
+                resultDiv.className = `result-img ${aspectRatio}`;
+                const imgElement = document.createElement('img');
+                imgElement.className = "w-full h-full object-cover cursor-pointer";
+                imgElement.dataset.index = index;
+                if (imageData) {
+                    imgElement.src = imageData;
+                    generatedImages[index] = imageData;
+                } else {
+                    imgElement.src = "https://placehold.co/400x600/fecaca/991b1b?text=Failed";
+                    generatedImages[index] = null;
+                }
+                resultDiv.innerHTML = '';
+                resultDiv.appendChild(imgElement);
+            };
+
+            processImage(masterImageData, 0);
+
+            const subsequentPromises = selectedPoses.slice(1).map(async (poseKey, index) => {
+                const prompt = `YOUR ONLY VISUAL REFERENCE IS THE MASTER IMAGE. Re-pose the person in ${poses[poseKey].prompt}. Maintain 100% PERFECT consistency with the Master Image's face, hair color, skin complexion, all clothing, accessories, and background.`;
+                let imagesForCall = { masterImage: masterImageBase64 };
+                if (poseKey === 'back_view') {
+                    imagesForCall.productBack = uploadedImages.productBack;
+                }
+                const imageData = await generateImage(prompt, imagesForCall);
+                processImage(imageData, index + 1);
+            });
+
+            await Promise.all(subsequentPromises);
+            
+            setLoadingState(false);
+            generateBtn.disabled = false;
+            if (generatedImages.filter(Boolean).length > 0) {
+                downloadBtn.disabled = false;
+            }
+        }
+
+        function downloadAllImages() {
+            const validImages = generatedImages.filter(Boolean);
+            if (validImages.length === 0) return showMessage("No images to download.");
+            const zip = new JSZip();
+            validImages.forEach((imgData, index) => {
+                zip.file(`stylus_ai_image_${index + 1}.png`, imgData.split(',')[1], { base64: true });
+            });
+            zip.generateAsync({ type: "blob" }).then(content => {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = "stylus-ai-photoshoot.zip";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        }
+    </script>
+</body>
+</html>
+
