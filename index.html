@@ -492,11 +492,8 @@
         // --- Utility & Modal Functions ---
         function setLoadingState(isLoading, message, button, textEl, loaderEl) {
             if (isLoading) {
-                // Check if mainContent exists before applying styles
-                if (mainContent) {
-                    mainContent.style.filter = 'blur(5px)';
-                    mainContent.style.pointerEvents = 'none';
-                }
+                mainContent.style.filter = 'blur(5px)';
+                mainContent.style.pointerEvents = 'none';
                 loadingText.innerHTML = message;
                 loadingOverlay.classList.remove('hidden');
                 if(button) {
@@ -505,10 +502,8 @@
                     if (loaderEl) loaderEl.classList.remove('hidden');
                 }
             } else {
-                 if (mainContent) {
-                    mainContent.style.filter = 'none';
-                    mainContent.style.pointerEvents = 'auto';
-                }
+                 mainContent.style.filter = 'none';
+                mainContent.style.pointerEvents = 'auto';
                 loadingOverlay.classList.add('hidden');
                  if(button) {
                     button.disabled = false;
@@ -711,4 +706,5 @@
     </script>
 </body>
 </html>
+
 
